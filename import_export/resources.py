@@ -30,6 +30,7 @@ try:
 except ImportError:
     from .django_compat import atomic, savepoint, savepoint_rollback, savepoint_commit  # noqa
 
+from django_mysql.locks import TableLock
 
 if VERSION < (1, 8):
     from django.db.models.related import RelatedObject
@@ -487,7 +488,7 @@ class Resource(six.with_metaclass(DeclarativeMetaclass)):
             row_result.errors.append(self.get_error_result_class()(e, tb_info, row))
         return row_result
 
-    def import_data(self, dataset, dry_run=False, raise_errors=False,
+    def import_data(self, dataset, dry_run=False, raise_errors=False, table_locks=None,
                     use_transactions=None, collect_failed_rows=False, **kwargs):
         """
         Imports data from ``tablib.Dataset``. Refer to :doc:`import_workflow`
@@ -507,6 +508,11 @@ class Resource(six.with_metaclass(DeclarativeMetaclass)):
         :param dry_run: If ``dry_run`` is set, or an error occurs, if a transaction
             is being used, it will be rolled back.
         """
+
+        table_locks = getattr(kwargs, 'table_locks', None)
+        if table_locks:
+            tlock = TableLock(write_concurrent=table_locks)
+            tlock.acquire()
 
         if use_transactions is None:
             use_transactions = self.get_use_transactions()
